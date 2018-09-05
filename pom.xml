@@ -5,7 +5,7 @@
     <modelVersion>4.0.0</modelVersion>
 
     <groupId>app.metatron.discovery</groupId>
-    <artifactId>metatron-discovery-clone</artifactId>
+    <artifactId>metatron-discovery-copy</artifactId>
     <version>1.0-SNAPSHOT</version>
     <packaging>pom</packaging>
 
