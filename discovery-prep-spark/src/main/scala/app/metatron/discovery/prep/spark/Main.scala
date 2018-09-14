@@ -1,14 +1,26 @@
 package app.metatron.discovery.prep.spark
 
 import app.metatron.discovery.prep.parser.preparation.RuleVisitorParser
-import org.apache.spark.sql.SparkSession
+import org.apache.spark.sql.{DataFrame, SparkSession}
+
+import scala.collection.JavaConverters._
 
 object Main {
-  def main(args: Array[String]): Unit = {
-    val spark = SparkSession.builder().config("spark.master", "local").getOrCreate()
-    println("Hello, Spark!")
+  var transformer: Transformer = null
 
-    val rule = new RuleVisitorParser().parse("rename col: x to: y")
-    println(rule)
+  def getSparkSession() = {   // TODO: use perperties from polaris
+    SparkSession.builder().config("spark.master", "local").getOrCreate()
+  }
+
+  def main(args: Array[String]): Unit = {
+    transformer = new Transformer(getSparkSession())
+    transformer.process(args)
+  }
+
+  def javaCall(args: java.util.List[String]) = {
+    if (transformer == null) {
+      transformer = new Transformer(getSparkSession())
+    }
+    transformer.process(args.asScala.toArray)
   }
 }
