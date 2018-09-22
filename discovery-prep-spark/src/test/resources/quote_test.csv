@@ -1,0 +1,4 @@
+A,B,C
+Test1,Space replace test "SHOULD NOT REPLACE IN THIS QUOTES" and replace here!, OK
+Test2,Multiple quote matches case "SHOULD NOT REPLACE IN THIS QUOTES" and replace here! and "AGAIN SKIP HERE", OK
+Test3,Unmatched quote case "SHOULD NOT REPLACE IN THIS QUOTES" and replace here! then "HOW ABOUT THIS?, OK

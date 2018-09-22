@@ -30,4 +30,8 @@ object Util {
   def getStringListFromMap(map: Map[String, Object], key: String): ::[String] = {
     map.get(key).get.asInstanceOf[::[String]]
   }
+
+  def getMapListFromMap(map: Map[String, Object], key: String): List[Map[String, Object]] = {
+    map(key).asInstanceOf[List[Map[String, Object]]]
+  }
 }

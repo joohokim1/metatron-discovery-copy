@@ -1,15 +1,18 @@
 package app.metatron.discovery.prep.spark
 
-import app.metatron.discovery.prep.parser.preparation.RuleVisitorParser
-import org.apache.spark.sql.{DataFrame, SparkSession}
+import org.apache.spark.sql.SparkSession
 
 import scala.collection.JavaConverters._
 
 object Main {
+  var spark: SparkSession = null
   var transformer: Transformer = null
 
   def getSparkSession() = {   // TODO: use perperties from polaris
-    SparkSession.builder().config("spark.master", "local").getOrCreate()
+    if (spark == null) {
+      spark = SparkSession.builder().config("spark.master", "local").getOrCreate()
+    }
+    spark
   }
 
   def main(args: Array[String]): Unit = {

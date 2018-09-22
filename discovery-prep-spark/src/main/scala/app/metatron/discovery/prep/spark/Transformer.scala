@@ -1,32 +1,42 @@
 package app.metatron.discovery.prep.spark
 
+import app.metatron.discovery.prep.parser.preparation.RuleVisitorParser
+import app.metatron.discovery.prep.spark.rule.{PrepHeader, PrepRename, PrepReplace}
 import org.apache.spark.sql.{DataFrame, SparkSession}
-class Transformer(spark: SparkSession) {
 
-  val IMPORT_TYPE = "importType" : String
-  val DELIMITER = "delimiter" : String
-  val FILE_PATH = "filePath" : String
+import scala.beans.BeanProperty
+
+class Transformer(@BeanProperty spark: SparkSession) {
+  // Constants
+  val IMPORT_TYPE            = "importType"           : String
+  val DELIMITER              = "delimiter"            : String
+  val FILE_PATH              = "filePath"             : String
   val UPSTREAM_DATASET_INFOS = "upstreamDatasetInfos" : String
-  val RULE_STRINGS = "ruleStrings" : String
-  val ORIG_TEDDY_DS_ID = "origTeddyDsId" : String
+  val RULE_STRINGS           = "ruleStrings"          : String
+  val ORIG_TEDDY_DS_ID       = "origTeddyDsId"        : String
 
-  def process(args: Array[String], spark: SparkSession = null): Unit = {
-    if (spark == null) {
-      val spark = SparkSession.builder().config("spark.master", "local").getOrCreate()
-      println("Spark session created!")
-    }
+  // Static variables
+  val RuleVisitorParser = new RuleVisitorParser
 
-    val jsonPrepProperties = args.apply(0)
-    val jsonDatasetInfo    = args.apply(1)
-    val jsonSnapshotInfo   = args.apply(2)
-    val jsonCallbackInfo   = args.apply(3)
+  // Main entrance of this program
+  def process(args: Array[String]) = {
+
+    val jsonPrepProperties = args(0)
+    val jsonDatasetInfo    = args(1)
+    val jsonSnapshotInfo   = args(2)
+    val jsonCallbackInfo   = args(3)
 
     println(f"jsonPrepProperties=$jsonPrepProperties")
-    println(f"jsonDatasetInfo=$jsonDatasetInfo")
-    println(f"jsonSnapshotInfo=$jsonSnapshotInfo")
-    println(f"jsonCallbackInfo=$jsonCallbackInfo")
+    println(f"jsonDatasetInfo   =$jsonDatasetInfo")
+    println(f"jsonSnapshotInfo  =$jsonSnapshotInfo")
+    println(f"jsonCallbackInfo  =$jsonCallbackInfo")
 
-    val mapDatasetInfo = Util.toMap[Object](jsonDatasetInfo)
+    val mapPrepProperties = Util.toMap[Object](jsonPrepProperties)
+    val mapDatasetInfo    = Util.toMap[Object](jsonDatasetInfo)
+    val mapSnapshotInfo   = Util.toMap[Object](jsonSnapshotInfo)
+    val mapCallbackInfo   = Util.toMap[Object](jsonCallbackInfo)
+
+    SparkUtil.registerUdfs()
 
     var df = load(mapDatasetInfo)
     df.show()
@@ -36,18 +46,17 @@ class Transformer(spark: SparkSession) {
   }
 
   def load(mapDatasetInfo: Map[String, Object]): DataFrame = {
+    var df: DataFrame = null
     println("load() start")
 
     for (key <- List(IMPORT_TYPE, DELIMITER, FILE_PATH, UPSTREAM_DATASET_INFOS, RULE_STRINGS, ORIG_TEDDY_DS_ID)) {
       println(f"$key=${mapDatasetInfo(key)}")
     }
 
-    mapDatasetInfo(UPSTREAM_DATASET_INFOS).asInstanceOf[List[Map[String, Object]]].foreach(load)
-
-    var df: DataFrame = null
+    Util.getMapListFromMap(mapDatasetInfo, UPSTREAM_DATASET_INFOS).foreach(load)
 
     mapDatasetInfo.get(IMPORT_TYPE).get.asInstanceOf[String] match {
-      case "FILE" => df = loadFile(mapDatasetInfo)
+      case "FILE" => return loadFile(mapDatasetInfo)
       case _ => assert(false)
     }
 
@@ -62,25 +71,27 @@ class Transformer(spark: SparkSession) {
   }
 
   def transform(df: DataFrame, mapDatasetInfo: Map[String, Object]): DataFrame = {
+    var newDf: DataFrame = df
+    val ruleStrings = Util.getStringListFromMap(mapDatasetInfo, RULE_STRINGS)
+
     println("transform() start")
 
-    val ruleStrings = Util.getStringListFromMap(mapDatasetInfo, RULE_STRINGS)
-    ruleStrings.foreach(ruleString => applyRule(df, ruleString))
+    ruleStrings.foreach(ruleString => newDf = applyRule(newDf, ruleString))
 
     println("transform() done")
-    df
+    newDf
   }
 
   def applyRule(df: DataFrame, ruleString: String): DataFrame = {
     println(f"applyRule: $ruleString")
-    df
-  }
 
-//  def printElem(map: Map[String, Object], key: String) = {
-//    println(f"$key=${map(key)}")
-//  }
-//
-//  def printElem(map: Any, tuple: (String, Object)) = {
-//  }
+    val rule = RuleVisitorParser.parse(ruleString)
+
+    rule.getName match {
+      case "rename" => return PrepRename(rule).transform(df)
+      case "header" => return PrepHeader(rule).transform(df)
+      case "replace" => return PrepReplace(rule).transform(df)
+    }
+  }
 
 }
