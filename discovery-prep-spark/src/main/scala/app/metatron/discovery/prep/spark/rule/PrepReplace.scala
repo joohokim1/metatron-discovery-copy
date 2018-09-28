@@ -29,8 +29,6 @@ case class PrepReplace(rule: Rule) extends PrepRule(rule) {
     }
     outColStr = outColStr.substring(0, outColStr.length - 2)  // remove ", "
 
-    var newDf = spark.sql("SELECT %s FROM global_temp.temp".format(outColStr))
-    newDf.show()
-    newDf
+    spark.sql("SELECT %s FROM global_temp.temp".format(outColStr))
   }
 }

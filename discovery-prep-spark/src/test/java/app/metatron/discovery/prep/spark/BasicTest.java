@@ -154,4 +154,13 @@ public class BasicTest {
 
     testCrime(ruleStrings);
   }
+
+  @Test
+  public void testKeep() throws JsonProcessingException {
+    List<String> ruleStrings = getCleansingRuleSet();
+
+    ruleStrings.add("keep row: Location = 'LA'");
+
+    testCrime(ruleStrings);
+  }
 }

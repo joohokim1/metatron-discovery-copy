@@ -9,6 +9,43 @@ import scala.collection.mutable.ArrayBuffer
 class SparkTest extends FunSuite with Serializable {
   val spark = SparkSession.builder().config("spark.master", "local").getOrCreate()
 
+  spark.udf.register("replace", (str: String, from: String, to: String, quote: String) => {
+    var resultStr = ""
+
+    if (quote == null) {
+      resultStr = str.replace(from, to)
+    } else {
+      var inQuote = false
+
+      var offsets = ArrayBuffer[Int](0)
+      var offset = -1
+
+      // find all occurrences of quote
+      while ( {
+        offset = str.indexOf(quote, offsets.last + 1); offset
+      } > 0) {
+        offsets += offset
+      }
+      println(offsets)
+
+      // put together, replace only when not enclosed by quotes
+      for (i <- 0 until offsets.size) {
+        if (i == offsets.size - 1) {
+          // if quote not closed, then do not replace
+          resultStr += str.substring(offsets.apply(i)).replace(from, to)
+        } else if (inQuote) {
+          resultStr += str.substring(offsets.apply(i), offsets.apply(i + 1))
+          inQuote = false
+        } else {
+          resultStr += str.substring(offsets.apply(i), offsets.apply(i + 1)).replace(from, to)
+          inQuote = true
+        }
+      }
+    }
+
+    resultStr
+  })
+
   def getDfCrime: DataFrame = {
     val filePath = "src/test/resources/crime.csv"
     spark.read.format("csv").option("header", "false").load(filePath)
@@ -45,23 +82,6 @@ class SparkTest extends FunSuite with Serializable {
     val df: DataFrame = getDfCrime.withColumn("monotonically_increasing_id", monotonically_increasing_id)
     header(df).sort("monotonically_increasing_id").drop("monotonically_increasing_id")
   }
-
-  def replace(df: DataFrame, targetColNames: List[String], from: String, to: String) : DataFrame = {
-    var outColStr: String = ""
-    var newDf = df
-
-    for (colName <- newDf.columns) {
-      if (targetColNames.contains(colName)) {
-        outColStr += "translate(`%s`, '%s', '%s') AS `%s`, ".format(colName, from, to, colName)
-      } else {
-        outColStr += "`%s`, ".format(colName)
-      }
-    }
-    outColStr = outColStr.substring(0, outColStr.length - 2)  // remove ", "
-
-    createView(spark.sql("SELECT %s FROM global_temp.crime".format(outColStr)), "crime")
-  }
-
   test("SparkTest.show") {
     val df: DataFrame = getDfCrime
     assert(df !== null)
@@ -89,85 +109,37 @@ class SparkTest extends FunSuite with Serializable {
     newDf.show()
   }
 
-  // crime.csv does not have space-included column names anymore.
-  // It's to proceed other tests smoothly.
-  // When quoting on column names becomes enable, this test-case will be resurrected.
-//  test("SparkTest.various_colnames_in_SQL") {
-//    var newDf = createView(header(getDfCrime), "crime")
-//    newDf = spark.sql("SELECT `Total Crime` FROM global_temp.crime")
-//    newDf.show()
-//  }
-
-  test("SparkTest.replace") {
-    var newDf = createView(header(getDfCrime), "crime")
-
-    val targetColNames = List[String]("Population_", "Total_Crime", "Violent_Crime", "Property_Crime", "Murder_", "Forcible_Rape_", "Robbery_", "Aggravated_Assault_", "Burglary_", "Larceny_Theft_", "Vehicle_Theft_")
-
-    newDf = replace(newDf, targetColNames, "_", "")
-    newDf = replace(newDf, targetColNames, " ", "")
-    newDf = replace(newDf, targetColNames, ",", "")
-
-    newDf.show()
-  }
-
-  def replace(str: String, from: String, to: String, quote: String): String = {
-    var quoteOffsets = ArrayBuffer[Int]()
-    for (i <- 0 until str.length) {
-      if (str.substring(i, quote.size) == quote) {
-        quoteOffsets += i
-      }
-    }
-
-    var resultStr = str.substring(0, quoteOffsets.apply(0)).replace(from, to)
-    var skip = true
-    for (i <- quoteOffsets.indices) {
-      if (skip) {
-        resultStr += str.substring(i, quoteOffsets.apply(0))
-        skip = false
-      } else {
-        resultStr += str.substring(i, quoteOffsets.apply(0)).replace(from, to)
-        skip = true
-      }
-    }
-
-    resultStr
-  }
-
   test("SparkTest.replaceWithQoute") {
     var newDf = createView(getDfQuoteTest, "quote_test")
     newDf.show(truncate = false)
 
-    spark.udf.register("replace", (str: String, from: String, to: String, quote: String) => {
-      var resultStr = ""
-      var inQuote = false
-
-      var offsets = ArrayBuffer[Int](0)
-      var offset = -1
-
-      // find all occurrences of quote
-      while ({offset = str.indexOf(quote, offsets.last + 1); offset} > 0) {
-        offsets += offset
-      }
-      println(offsets)
-
-      // put together, replace only when not enclosed by quotes
-      for (i <- 0 until offsets.size) {
-        if (i == offsets.size - 1) {
-          // if quote not closed, then do not replace
-          resultStr += str.substring(offsets.apply(i)).replace(from, to)
-        } else if (inQuote) {
-          resultStr += str.substring(offsets.apply(i), offsets.apply(i + 1))
-          inQuote = false
-        } else {
-          resultStr += str.substring(offsets.apply(i), offsets.apply(i + 1)).replace(from, to)
-          inQuote = true
-        }
-      }
-
-      resultStr
-    })
-
     spark.sql("""SELECT replace(`B`, ' ', '_', '"') FROM global_temp.quote_test""").show(truncate = false)
+  }
+
+  def getOutColToRemove(on: String): String = {
+    var outColList = "Date, Location, "
+    val targetColNames = List[String]("Population_", "Total_Crime", "Violent_Crime", "Property_Crime", "Murder_", "Forcible_Rape_", "Robbery_", "Aggravated_Assault_", "Burglary_", "Larceny_Theft_", "Vehicle_Theft_")
+
+    targetColNames.map(colName => outColList += "replace(`%s`, '%s', '', null) AS `%s`, ".format(colName, on, colName))
+    outColList.substring(0, outColList.length - 2)
+  }
+
+  def getDfCrimeCleansed: DataFrame = {
+    val df: DataFrame = createView(headerKeepOrder(getDfCrime), "crime")
+
+    createView(spark.sql("SELECT %s FROM global_temp.crime".format(getOutColToRemove("_"))), "crime")
+    createView(spark.sql("SELECT %s FROM global_temp.crime".format(getOutColToRemove(","))), "crime")
+    createView(spark.sql("SELECT %s FROM global_temp.crime".format(getOutColToRemove(" "))), "crime")
+  }
+
+  test("SparkTest.basicCleansing") {
+    var newDf = getDfCrimeCleansed
+    newDf.show()
+  }
+
+  test("SparkTest.keep") {
+    getDfCrimeCleansed
+    spark.sql("SELECT * FROM global_temp.crime WHERE Location = 'NY'").show()
   }
 }
 

@@ -1,7 +1,7 @@
 package app.metatron.discovery.prep.spark
 
 import app.metatron.discovery.prep.parser.preparation.RuleVisitorParser
-import app.metatron.discovery.prep.spark.rule.{PrepHeader, PrepRename, PrepReplace, PrepSetType}
+import app.metatron.discovery.prep.spark.rule._
 import org.apache.spark.sql.{DataFrame, SparkSession}
 
 class Transformer(spark: SparkSession) {
@@ -90,6 +90,7 @@ class Transformer(spark: SparkSession) {
       case "header" => return PrepHeader(rule).transform(df)
       case "replace" => return PrepReplace(rule).transform(df)
       case "settype" => return PrepSetType(rule).transform(df)
+      case "keep" => return PrepKeep(rule).transform(df)
     }
   }
 
