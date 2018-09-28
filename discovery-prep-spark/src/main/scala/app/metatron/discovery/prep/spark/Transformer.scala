@@ -1,12 +1,10 @@
 package app.metatron.discovery.prep.spark
 
 import app.metatron.discovery.prep.parser.preparation.RuleVisitorParser
-import app.metatron.discovery.prep.spark.rule.{PrepHeader, PrepRename, PrepReplace}
+import app.metatron.discovery.prep.spark.rule.{PrepHeader, PrepRename, PrepReplace, PrepSetType}
 import org.apache.spark.sql.{DataFrame, SparkSession}
 
-import scala.beans.BeanProperty
-
-class Transformer(@BeanProperty spark: SparkSession) {
+class Transformer(spark: SparkSession) {
   // Constants
   val IMPORT_TYPE            = "importType"           : String
   val DELIMITER              = "delimiter"            : String
@@ -91,6 +89,7 @@ class Transformer(@BeanProperty spark: SparkSession) {
       case "rename" => return PrepRename(rule).transform(df)
       case "header" => return PrepHeader(rule).transform(df)
       case "replace" => return PrepReplace(rule).transform(df)
+      case "settype" => return PrepSetType(rule).transform(df)
     }
   }
 

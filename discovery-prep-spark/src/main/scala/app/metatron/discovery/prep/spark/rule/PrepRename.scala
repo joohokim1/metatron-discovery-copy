@@ -1,13 +1,12 @@
 package app.metatron.discovery.prep.spark.rule
 
 import app.metatron.discovery.prep.parser.preparation.rule._
-import app.metatron.discovery.prep.parser.preparation.rule.expr.Expression
 import org.apache.spark.sql.DataFrame
 
 case class PrepRename(rule: Rule) extends PrepRule(rule) {
   val rename = rule.asInstanceOf[Rename]
-  val col: Expression = rename.getCol
-  val to: Expression = rename.getTo
+  val col = rename.getCol
+  val to = rename.getTo
 
   override def transform(df: DataFrame): DataFrame = {
     val colNames = getIdentifierList(col)
