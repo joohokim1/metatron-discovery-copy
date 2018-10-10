@@ -3,7 +3,7 @@
          xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
          xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
     <parent>
-        <artifactId>metatron-discovery-clone</artifactId>
+        <artifactId>metatron-discovery</artifactId>
         <groupId>app.metatron.discovery</groupId>
         <version>1.0-SNAPSHOT</version>
     </parent>
@@ -90,7 +90,7 @@
 
                 </configuration>
             </plugin>
-
+            <!-- nowone change
             <plugin>
                 <groupId>net.alchim31.maven</groupId>
                 <artifactId>scala-maven-plugin</artifactId>
@@ -112,6 +112,7 @@
                     </execution>
                 </executions>
             </plugin>
+            -->
         </plugins>
     </build>
 
@@ -179,7 +180,7 @@
         <dependency>
             <groupId>app.metatron.discovery</groupId>
             <artifactId>discovery-prep-parser</artifactId>
-            <version>3.0.2</version>
+            <version>${project.version}</version>
             <exclusions>
                 <exclusion>
                     <groupId>org.slf4j</groupId>
