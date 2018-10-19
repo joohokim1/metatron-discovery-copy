@@ -3,14 +3,14 @@ package app.metatron.discovery.prep.spark.rule
 import app.metatron.discovery.prep.parser.preparation.rule.Rule
 import app.metatron.discovery.prep.parser.preparation.rule.expr.Expression
 import app.metatron.discovery.prep.parser.preparation.rule.expr.Identifier.{IdentifierArrayExpr, IdentifierExpr}
-import app.metatron.discovery.prep.spark.Main
+import app.metatron.discovery.prep.spark.{Main, SparkUtil}
 import org.apache.spark.sql.DataFrame
 
 import scala.collection.JavaConverters._
 import scala.collection.mutable.ListBuffer
 
 class PrepRule(rule: Rule) {
-  val spark = Main.getSparkSession()
+  val spark = SparkUtil.getSession()
 
   // should be overriden
   def transform(df: DataFrame) : DataFrame = df

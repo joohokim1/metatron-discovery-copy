@@ -27,6 +27,10 @@ object Util {
     map.get(key).get.asInstanceOf[String]
   }
 
+  def getStringFromMap(map: Map[String, Object], key: String, defalut: String): String = {
+    if( map.get(key).isDefined) map.get(key).get.asInstanceOf[String] else defalut
+  }
+
   def getStringListFromMap(map: Map[String, Object], key: String): ::[String] = {
     map.get(key).get.asInstanceOf[::[String]]
   }
