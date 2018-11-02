@@ -8,7 +8,7 @@ import org.apache.spark.sql.{DataFrame, SparkSession}
 import scala.util.{Failure, Success, Try}
 
 class Transformer(spark: SparkSession) {
-
+  val logger = LogManager.getLogger(this.getClass.getName)
 
   // Static variables
   val RuleVisitorParser = new RuleVisitorParser
@@ -17,16 +17,15 @@ class Transformer(spark: SparkSession) {
   // Main entrance of this program
   def process(args: Array[String]) = {
 
-
     val jsonPrepProperties = args(0)
     val jsonDatasetInfo    = args(1)
     val jsonSnapshotInfo   = args(2)
     val jsonCallbackInfo   = args(3)
 
-    println(f"jsonPrepProperties=$jsonPrepProperties")
-    println(f"jsonDatasetInfo   =$jsonDatasetInfo")
-    println(f"jsonSnapshotInfo  =$jsonSnapshotInfo")
-    println(f"jsonCallbackInfo  =$jsonCallbackInfo")
+    this.logger.info(f"jsonPrepProperties=$jsonPrepProperties")
+    this.logger.info(f"jsonDatasetInfo   =$jsonDatasetInfo")
+    this.logger.info(f"jsonSnapshotInfo  =$jsonSnapshotInfo")
+    this.logger.info(f"jsonCallbackInfo  =$jsonCallbackInfo")
 
     val mapPrepProperties = Util.toMap[Object](jsonPrepProperties)
     val mapDatasetInfo    = Util.toMap[Object](jsonDatasetInfo)
@@ -41,14 +40,15 @@ class Transformer(spark: SparkSession) {
       df.show()
 
       df = transform(df, mapDatasetInfo)
-      df.show()
+      df.show(10)
 
 
       SparkUtil.save(df, mapSnapshotInfo)
 
     } match {
-      case Success(result) => this.callback(mapCallbackInfo, Map( "result" -> "success"))
-      case Failure(exception) => print(exception); this.callback(mapCallbackInfo, Map( "result" -> "error"))
+      case Success(result) => this.callbackSuccess(mapCallbackInfo, Map( "result" -> "success"))
+      case Failure(exception) =>  this.callbackError(exception, mapCallbackInfo, Map("result" -> "error") )
+
     }
 
   }
@@ -56,7 +56,8 @@ class Transformer(spark: SparkSession) {
 
   def load(mapDatasetInfo: Map[String, Object]): DataFrame = {
     var df: DataFrame = null
-    println("load() start")
+
+    this.logger.info("load() start")
 
     /*
     for (key <- List(IMPORT_TYPE, DELIMITER, FILE_PATH, UPSTREAM_DATASET_INFOS, RULE_STRINGS, ORIG_TEDDY_DS_ID)) {
@@ -71,7 +72,8 @@ class Transformer(spark: SparkSession) {
       case _ => assert(false)
     }
 
-    println("load() done")
+    this.logger.info("load() done")
+
     df
   }
 
@@ -85,25 +87,27 @@ class Transformer(spark: SparkSession) {
     var newDf: DataFrame = df
     val ruleStrings = Util.getStringListFromMap(mapDatasetInfo, PrepConst.RULE_STRINGS)
 
-    println("transform() start")
+    this.logger.info("transform() start")
 
     ruleStrings.foreach(ruleString => newDf = applyRule(newDf, ruleString))
 
-    println("transform() done")
+    this.logger.info("transform() done")
     newDf
   }
 
   def applyRule(df: DataFrame, ruleString: String): DataFrame = {
-    println(f"applyRule: $ruleString")
+    this.logger.debug(f"applyRule: $ruleString")
 
     val rule = RuleVisitorParser.parse(ruleString)
 
     rule.getName match {
-      case "rename" => return PrepRename(rule).transform(df)
-      case "header" => return PrepHeader(rule).transform(df)
-      case "replace" => return PrepReplace(rule).transform(df)
-      case "settype" => return PrepSetType(rule).transform(df)
-      case "keep" => return PrepKeep(rule).transform(df)
+      case "rename"   => return PrepRename(rule).transform(df)
+      case "header"   => return PrepHeader(rule).transform(df)
+      case "drop"     => return PrepDrop(rule).transform(df)
+      case "replace"  => return PrepReplace(rule, ruleString).transform(df)
+      case "settype"  => return PrepSetType(rule).transform(df)
+      case "keep"     => return PrepKeep(rule).transform(df)
+      case "drop"     => return PrepDelete(rule).transform(df)
     }
   }
 
@@ -112,7 +116,7 @@ class Transformer(spark: SparkSession) {
     * @param mapCallbackInfo
     * @param dataMap
     */
-  def callback( mapCallbackInfo: Map[String, Object], dataMap: Map[String, String] = null  ): Unit = {
+  def callbackSuccess( mapCallbackInfo: Map[String, Object], dataMap: Map[String, String] = null  ): Unit = {
 
     val scheme = "http"
     val host = "localhost"
@@ -122,8 +126,42 @@ class Transformer(spark: SparkSession) {
 
     val updateUrl = scheme +"://" + host +":" + port + path + ssId;
 
-    val log = LogManager.getRootLogger
-    log.info("Callback URL:" + updateUrl);
+
+    logger.info("Callback URL:" + updateUrl);
+
+    val oauthToken = Util.getStringFromMap(mapCallbackInfo, PrepConst.OAUTH_TOKEN);
+
+    val headerMap = Map(
+      "Content-Type" -> "application/json;charset=UTF-8",
+      "Accept" -> "application/json, text/plain, */*",
+      "Authorization" -> oauthToken
+    )
+
+    // HttpUtil.patch(updateUrl, dataMap, headerMap)
+
+  }
+
+
+  /**
+    * call key 정의 필요
+    * @param exception
+    * @param mapCallbackInfo
+    * @param dataMap
+    */
+  def callbackError(exception: Throwable, mapCallbackInfo: Map[String, Object], dataMap: Map[String, String] = null  ): Unit = {
+
+    this.logger.error(exception);
+
+    val scheme = "http"
+    val host = "localhost"
+    val port = "8018" //Util.getStringFromMap(mapCallbackInfo, "port")
+    val path = "/api/preparationsnapshots/"
+    val ssId = ""
+
+    val updateUrl = scheme +"://" + host +":" + port + path + ssId;
+
+
+    logger.info("Callback URL:" + updateUrl);
 
     val oauthToken = Util.getStringFromMap(mapCallbackInfo, PrepConst.OAUTH_TOKEN);
 

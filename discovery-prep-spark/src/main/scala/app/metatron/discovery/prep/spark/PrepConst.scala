@@ -42,10 +42,17 @@ object PrepConst {
   val USERNAME                = "username"
   val PASSWORD                = "password"
   val IMPLEMENTOR             = "implementor" //ORACLE,MYSQL,POSTGRESQL,HIVE, PRESTO, TIBERO
+  val HEADER                  = "header"
+  val QUOTE                   = "quote"
+  val QUOTE_ALL               = "quoteAll"
+  val ESCAPE                  = "escape"
+  val IGNORE_LEADING_WHITESPACE               = "ignoreLeadingWhiteSpace"
+  val IGNORE_TRAILING_WHITESPACE               = "ignoreTrailingWhiteSpace"
+  val MULTILINE               = "multiLine"
+
+
 
   val OAUTH_TOKEN             = "oauthToken"
-
-
 
 
 

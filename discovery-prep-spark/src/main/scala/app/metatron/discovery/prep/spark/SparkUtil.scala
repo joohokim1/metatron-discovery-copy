@@ -100,20 +100,89 @@ object SparkUtil {
   def load( mapDatasetInfo: Map[String, Object]): DataFrame = {
 
     val importType = Util.getStringFromMap(mapDatasetInfo, PrepConst.IMPORT_TYPE)
+    val ssFormat = Util.getStringFromMap(mapDatasetInfo, PrepConst.SS_FORMAT, "CSV")
 
     val df = importType match {
       case "FILE" => {
 
         val filePath: String = Util.getStringFromMap(mapDatasetInfo, PrepConst.FILE_PATH)
 
+        /*
         val options = if(  mapDatasetInfo.get(PrepConst.DELIMITER).isDefined) {
           val delimiter = Util.getStringFromMap(mapDatasetInfo, PrepConst.DELIMITER)
-          Map("header" -> "false", "delimiter" -> delimiter)
+          // Map("header" -> "false", "delimiter" -> delimiter)
+          Map("header" -> "false", "sep" -> delimiter, "quote"-> "\"")
         } else {
           Map("header" -> "false")
         }
+        */
 
-        this.loadFile("csv", filePath, options)
+        //val options = Map("header" -> "true", "sep" -> ",", "quote"-> "'","ignoreLeadingWhiteSpace" -> "true", "escape" ->"\\")
+
+        var optionsMap = scala.collection.mutable.Map[String, String]()
+
+        mapDatasetInfo.keys.foreach( (key) =>
+
+          if ( PrepConst.DELIMITER == key) {
+           val value = Util.getStringFromMap(mapDatasetInfo, PrepConst.DELIMITER)
+           if( value != null  ){
+             if( value.length == 1 ){
+               optionsMap("sep") = value
+             }else if( value.length > 1){
+               throw new IllegalArgumentException("spark cvs delimiter(sep): need the single character: length:" + value.length)
+             }
+           }
+
+          } else if ( PrepConst.HEADER == key) {
+            val value = Util.getStringFromMap(mapDatasetInfo, PrepConst.HEADER)
+            if (value != null && "true" == value.toLowerCase) {
+              optionsMap("header") = "true"
+            }
+
+          } else if ( PrepConst.QUOTE == key) {
+            val value = Util.getStringFromMap(mapDatasetInfo, PrepConst.QUOTE)
+            if( value != null  ){
+              if( value.length == 0 || value.length == 1 ){
+                //If you would like to turn off quotations, you need to set not null but an empty string.
+                optionsMap("quote") = value
+              }else if( value.length > 1){
+                throw new IllegalArgumentException("spark cvs quote: need the single character: length:" + value.length)
+              }
+            }
+          } else if ( PrepConst.ESCAPE == key) {
+            val value = Util.getStringFromMap(mapDatasetInfo, PrepConst.ESCAPE)
+            if (value != null) {
+              if (value.length == 1) {
+                optionsMap("escape") = value
+              } else if (value.length > 1) {
+                throw new IllegalArgumentException("spark cvs escape: need the single character: length:" + value.length)
+              }
+            }
+          } else if ( PrepConst.MULTILINE == key) {
+            val value = Util.getStringFromMap(mapDatasetInfo, PrepConst.MULTILINE)
+            if (value != null && "true" == value.toLowerCase) {
+              optionsMap("multiLine") = "true"
+            }
+          } else if ( PrepConst.IGNORE_LEADING_WHITESPACE == key) {
+            val value = Util.getStringFromMap(mapDatasetInfo, PrepConst.IGNORE_LEADING_WHITESPACE)
+            if (value != null && "true" == value.toLowerCase) {
+              optionsMap("ignoreLeadingWhiteSpace") = "true"
+            }
+          } else if ( PrepConst.IGNORE_TRAILING_WHITESPACE == key) {
+            val value = Util.getStringFromMap(mapDatasetInfo, PrepConst.IGNORE_TRAILING_WHITESPACE)
+            if (value != null && "true" == value.toLowerCase) {
+              optionsMap("ignoreTrailingWhiteSpace") = "true"
+            }
+          }
+        )
+
+
+        //val options = Map("header" -> "false", "sep" -> ",", "quote"-> "\"","ignoreLeadingWhiteSpace" -> "true")
+        //val options = Map("header" -> "true", "sep" -> ",", "quote"-> "'","ignoreLeadingWhiteSpace" -> "true", "escape" ->"\\")
+
+        //spark.read.format("com.databricks.spark.csv") different
+
+        this.loadFile(ssFormat, filePath, optionsMap.toMap)
       }
       case "DB" => {
 
@@ -147,18 +216,35 @@ object SparkUtil {
 
 
   def loadFile( format:String, path:String, options:Map[String, String] = Map.empty[String, String]): DataFrame = {
+    //println(options)
     spark.read.format(format).options(options).load(path)
 
   }
 
   def loadHive( sourceQuery: String): DataFrame = {
     spark.sql(sourceQuery)
+    // beeline -u jdbc:hive2://localhost:10000/default -n scott -w password_file
   }
 
   def loadJDBC( url: String, query: String,  connProp: java.util.Properties): DataFrame = {
 
     spark.read.jdbc(url, query , connProp)
 
+  }
+
+  def getFormat( ftype: String): String = ftype match {
+    case "CSV"      => "csv"
+    case "JSON"     => "json"
+    case "ORC"      => "orc"
+    case "PARQUET"  => "parquet"
+    case _          => "text"
+  }
+
+  def getCompression( ctype: String): String = ctype match {
+    case "SNAPPY"   => "snappy"
+    case "ZLIB"     => "zlib"
+    case "LZO"      => "lzo"
+    case _          => ""
   }
 
   /**
@@ -180,16 +266,63 @@ object SparkUtil {
 
         val baseDir= Util.getStringFromMap(snapshotInfo, PrepConst.SS_LOCAL_BASE_DIR)
         val filePath= "file://" +baseDir + "/" +Util.getStringFromMap(snapshotInfo, PrepConst.SS_NAME)
-        val foramt = ssFormat.toLowerCase
+        val foramt = this.getFormat(ssFormat)
 
-        val options = if(  ssCompression != "NONE" ) {
-          val delimiter = Util.getStringFromMap(snapshotInfo, PrepConst.DELIMITER)
-          Map("compression" -> ssCompression.toLowerCase )
-        } else {
-          Map.empty[String, String];
-        }
+        var optionsMap = scala.collection.mutable.Map[String, String]()
 
-        this.saveFile(df, foramt, filePath, options, saveMode)
+        snapshotInfo.keys.foreach( (key) =>
+
+          if ( PrepConst.DELIMITER == key) {
+            val value = Util.getStringFromMap(snapshotInfo, PrepConst.DELIMITER)
+            if( value != null  ){
+              if( value.length == 1 ){
+                optionsMap("sep") = value
+              }else if( value.length > 1){
+                throw new IllegalArgumentException("spark cvs delimiter(sep): need the single character: length:" + value.length)
+              }
+            }
+
+          }else if ( PrepConst.SS_COMPRESSION == key) {
+            val value = Util.getStringFromMap(snapshotInfo, PrepConst.SS_COMPRESSION,"NONE")
+            if( value != null && "NONE" != value ){
+              optionsMap("compression") -> this.getCompression(ssCompression)
+            }
+
+          } else if ( PrepConst.HEADER == key) {
+            val value = Util.getStringFromMap(snapshotInfo, PrepConst.HEADER)
+            if (value != null && "true" == value.toLowerCase) {
+              optionsMap("header") = "true"
+            }
+
+          } else if ( PrepConst.QUOTE == key) {
+            val value = Util.getStringFromMap(snapshotInfo, PrepConst.QUOTE)
+            if( value != null  ){
+              if( value.length == 0 || value.length == 1 ){
+                //If you would like to turn off quotations, you need to set not null but an empty string.
+                optionsMap("quote") = value
+              }else if( value.length > 1){
+                throw new IllegalArgumentException("spark cvs quote: need the single character: length:" + value.length)
+              }
+            }
+          } else if ( PrepConst.ESCAPE == key) {
+            val value = Util.getStringFromMap(snapshotInfo, PrepConst.ESCAPE)
+            if (value != null) {
+              if (value.length == 1) {
+                optionsMap("escape") = value
+              } else if (value.length > 1) {
+                throw new IllegalArgumentException("spark cvs escape: need the single character: length:" + value.length)
+              }
+            }
+          } else if ( PrepConst.QUOTE_ALL == key) {
+            val value = Util.getStringFromMap(snapshotInfo, PrepConst.QUOTE_ALL)
+            if (value != null && "true" == value.toLowerCase) {
+              optionsMap("quoteAll") = "true"
+            }
+          }
+        )
+
+
+        this.saveFile(df, foramt, filePath, optionsMap.toMap, saveMode)
       }
       case "HDFS" => {
 
@@ -199,7 +332,7 @@ object SparkUtil {
 
         val options = if(  ssCompression != "NONE" ) {
           val delimiter = Util.getStringFromMap(snapshotInfo, PrepConst.DELIMITER)
-          Map("compression" -> ssCompression.toLowerCase )
+          Map("compression" -> this.getCompression(ssCompression) )
         } else {
           Map.empty[String, String];
         }
@@ -241,14 +374,11 @@ object SparkUtil {
 
   }
 
-
   def saveFile(df: DataFrame, format:String, path:String, options:Map[String, String] = Map.empty[String, String],
                                                                    saveMode: SaveMode = SaveMode.Overwrite): Unit = {
 
-
     df.write.format(format).mode(saveMode)
       .options(options).save(path)
-
   }
 
   def saveJDBC( df: DataFrame, url: String, tableName: String, connProp: java.util.Properties,
@@ -256,7 +386,6 @@ object SparkUtil {
     df.write.mode(saveMode).jdbc(url, tableName , connProp)
 
   }
-
 
   def createView(df: DataFrame, viewName: String) = {
     //spark.catalog.dropGlobalTempView(viewName)
@@ -272,9 +401,9 @@ object SparkUtil {
   }
 
   def registerUdfReplace() = {
-    spark.udf.register("replace", (str: String, from: String, to: String, quote: String) => {
+    spark.udf.register("replaceUDF", (str: String, from: String, to: String, quote: String) => {
       var resultStr = ""
-
+      //str: column value from:pattern
       if (quote == null) {
         resultStr = str.replace(from, to)
       } else {
@@ -289,7 +418,7 @@ object SparkUtil {
         } > 0) {
           offsets += offset
         }
-        println(offsets)
+        //println(offsets)
 
         // put together, replace only when not enclosed by quotes
         for (i <- 0 until offsets.size) {
@@ -309,7 +438,6 @@ object SparkUtil {
       resultStr
     })
   }
-
 
 }
 
