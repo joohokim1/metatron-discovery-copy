@@ -112,7 +112,17 @@ object RegexUtil {
 
   def getQuoteStr(quote:Expression, ruleName:String ="Rule quote"): String = {
     quote match {
-      case expr: Constant.StringExpr => disableRegexSymbols(expr.getEscapedValue);
+      case expr: Constant.StringExpr => disableRegexSymbols(expr.getEscapedValue)
+      case expr: RegularExpr => expr.getEscapedValue
+      case null              => null
+      case _  =>  throw new IllegalArgumentException(ruleName +": illegal pattern type: " + quote.toString)
+    }
+
+  }
+
+  def getOriginalQuoteStr(quote:Expression, ruleName:String ="Rule quote"): String = {
+    quote match {
+      case expr: Constant.StringExpr => expr.getEscapedValue
       case expr: RegularExpr => expr.getEscapedValue
       case null              => null
       case _  =>  throw new IllegalArgumentException(ruleName +": illegal pattern type: " + quote.toString)

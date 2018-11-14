@@ -86,6 +86,9 @@ public class FromFileToFileTest {
     snapshotInfo.put("ssName", "crime_csvfile"); // 저장 테이블 명
     snapshotInfo.put("ssId", "6e3eec52-fc60-4309-b0de-a53f93e08ce9");
     snapshotInfo.put("localBaseDir", "/Users/nowone/dev/temp");
+    snapshotInfo.put("header", "true");
+    snapshotInfo.put("quote", "\"");
+    snapshotInfo.put("quoteAll", "true");
     //snapshotInfo.put("mode", "APPEND");
 
     return mapper.writeValueAsString(snapshotInfo);
@@ -118,10 +121,15 @@ public class FromFileToFileTest {
     ruleStrings.add("header rownum: 1");
 
     ruleStrings.add("rename col: Population_ to: Population");
-    ruleStrings.add("settype col: Population type: long ");
+    //ruleStrings.add("settype col: Population type: long ");
     ruleStrings.add("settype col: Date type: timestamp format: 'yyyy.MM.dd'");
     ruleStrings.add("drop col: Murder_,Forcible_Rape_ ");
-    ruleStrings.add("keep row: Population>302173 ");
+    //ruleStrings.add("keep row: Population>302173 ");
+
+    ruleStrings.add("split col: Population  on: '6' global: true limit: 1 ");
+    ruleStrings.add("merge col: Aggravated_Assault_,Population, Location   with: '/'  as:'TEST_location' ");
+
+
 
     testCrime(ruleStrings);
   }

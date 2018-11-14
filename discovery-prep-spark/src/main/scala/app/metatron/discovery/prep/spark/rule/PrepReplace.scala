@@ -21,7 +21,7 @@ case class PrepReplace(rule: Rule, ruleString: String) extends PrepRule(rule) {
   val withExp = replace.getWith
   val quote = replace.getQuote
   val global = replace.getGlobal
-  val ignoreCase = replace.getIgnoreCase
+  val ignoreCase: Boolean = if( replace.getIgnoreCase != null) replace.getIgnoreCase else false
   val rowExp = replace.getRow // 있으면 사용시 항상 replaceValCol을 이용해서 $col을 치환해야 한다
 
   val patternStr = this.getPatternString()
@@ -32,14 +32,21 @@ case class PrepReplace(rule: Rule, ruleString: String) extends PrepRule(rule) {
 
   var rowExprMap = this.getReplaceRowMap()
 
+  val originalQuoteStr = this.getOriginalQuoteStr();
 
   override def transform(df: DataFrame): DataFrame = {
     if (!colExp.isInstanceOf[Identifier.IdentifierExpr] && !colExp.isInstanceOf[Identifier.IdentifierArrayExpr]) {
       throw new IllegalArgumentException("PrepReplace.transform: wrong target column expression: " + colExp.toString)
     }
 
-    def makeReplaceUdf(colName: String, pattern: Pattern, withExpr: Expr, quoteStr: String, isGlobal: Boolean, rowExpr: Expr) = {
-      val isQuote = quoteStr != null;
+    for( name <- targetColNames) {
+      if( !this.isStringType(df, name)) {
+        throw new IllegalArgumentException("PrefReplace: works only on STRING: " + name)
+      }
+    }
+
+    def makeReplaceUdf(colName: String, pattern: Pattern, withExpr: Expr, orgQuoteStr: String, isGlobal: Boolean, rowExpr: Expr) = {
+      val isQuote = orgQuoteStr != null && orgQuoteStr != "";
 
       udf((targetStr: String, dfRow: Row) => {
         // println("colName:"+ colName);
@@ -50,21 +57,11 @@ case class PrepReplace(rule: Rule, ruleString: String) extends PrepRule(rule) {
 
           val binding = new DataFrameRowNumericBinding(dfRow)
 
-          val checkCond: Boolean = if (rowExpr == null) {
-            true
-          } else {
-            try {
-              rowExpr.eval(binding).asBoolean
-            } catch {
-              case e: FunctionColumnNotFoundException => throw e
-              case e: NullPointerException => throw e
-              case _ => false;
-            }
-          }
+          val checkCond = this.checkCondition(rowExpr, binding)
 
           var quoteCount = 0;
-          if (isQuote && quoteStr != null) {
-            quoteCount = StringUtils.countMatches(targetStr, quoteStr) % 2
+          if (isQuote ) {
+            quoteCount = StringUtils.countMatches(targetStr, orgQuoteStr) % 2
           }
 
           if (!checkCond) {
@@ -83,7 +80,7 @@ case class PrepReplace(rule: Rule, ruleString: String) extends PrepRule(rule) {
                 targetStr
               }
             } else {
-              val lastIndex = targetStr.lastIndexOf(quoteStr);
+              val lastIndex = targetStr.lastIndexOf(orgQuoteStr);
               val targetStr2 = targetStr.substring(lastIndex);
               val newTargetStr = targetStr.substring(0, lastIndex);
 
@@ -116,7 +113,7 @@ case class PrepReplace(rule: Rule, ruleString: String) extends PrepRule(rule) {
         val needNames = containsColumns - colName;
 
         tempDf.withColumn(colName,
-          makeReplaceUdf(colName, pattern, withExpr, quoteStr, global, rowExprMap(colName))
+          makeReplaceUdf(colName, pattern, withExpr, originalQuoteStr, global, rowExprMap(colName))
           (col(colName), struct(colName, needNames.toList: _*))
         )
 
@@ -131,13 +128,15 @@ case class PrepReplace(rule: Rule, ruleString: String) extends PrepRule(rule) {
   }
 
   def getPatternString(): String = {
-
     RegexUtil.getPatternString(on, quote, ignoreCase, "PrepReplace Role on")
-
   }
 
   def getQuoteStr(): String = {
     RegexUtil.getQuoteStr(quote, "PrepReplace Rule quote")
+  }
+
+  def getOriginalQuoteStr(): String = {
+    RegexUtil.getOriginalQuoteStr(quote, "PrepReplace Rule quote")
   }
 
   def getReplaceRowMap(): Map[String, Expr] = {
@@ -148,6 +147,7 @@ case class PrepReplace(rule: Rule, ruleString: String) extends PrepRule(rule) {
       val rowExpr = rule.asInstanceOf[Replace].getRow
       RegexUtil.replaceValCol(rowExpr, colName)
       states(colName) = rowExpr.asInstanceOf[Expr]
+
     }
 
     states.toMap

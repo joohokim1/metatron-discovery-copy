@@ -1,7 +1,6 @@
 package app.metatron.discovery.prep.spark.rule
 
 import app.metatron.discovery.prep.parser.preparation.rule._
-import app.metatron.discovery.prep.spark.SparkUtil
 import org.apache.spark.sql.DataFrame
 import org.apache.spark.sql.types._
 import org.apache.spark.sql.functions._
