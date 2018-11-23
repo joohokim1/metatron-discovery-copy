@@ -127,8 +127,13 @@ public class FromFileToFileTest {
     //ruleStrings.add("keep row: Population>302173 ");
 
     ruleStrings.add("split col: Population  on: '6' global: true limit: 1 ");
-    ruleStrings.add("merge col: Aggravated_Assault_,Population, Location   with: '/'  as:'TEST_location' ");
+    ruleStrings.add("merge col: Aggravated_Assault_,Population, Location   with: '/'  as:'test_merge_loc' ");
 
+    ruleStrings.add("nest col: Aggravated_Assault_,Population, Location   into: ARRAY  as:'test_nest_array' ");
+    ruleStrings.add("nest col: Aggravated_Assault_,Population, Location   into: MAP as:'test_nest_map' ");
+
+    ruleStrings.add("unnest col: test_nest_array   into: ARRAY idx: 2 ");
+    ruleStrings.add("unnest col: test_nest_map   into: MAP idx: 'Population' ");
 
 
     testCrime(ruleStrings);

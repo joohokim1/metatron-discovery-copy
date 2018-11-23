@@ -40,7 +40,7 @@ class Transformer(spark: SparkSession) {
       df.show()
 
       df = transform(df, mapDatasetInfo)
-      df.show(10)
+      df.show(false)
 
 
       SparkUtil.save(df, mapSnapshotInfo)
@@ -101,15 +101,17 @@ class Transformer(spark: SparkSession) {
     val rule = RuleVisitorParser.parse(ruleString)
 
     rule.getName match {
-      case "rename"       => return PrepRename(rule).transform(df)
-      case "header"       => return PrepHeader(rule).transform(df)
-      case "drop"         => return PrepDrop(rule).transform(df)
-      case "replace"      => return PrepReplace(rule, ruleString).transform(df)
-      case "settype"      => return PrepSetType(rule).transform(df)
-      case "keep"         => return PrepKeep(rule).transform(df)
-      case "delete"       => return PrepDelete(rule).transform(df)
-      case "split"        => return PrepSplit(rule).transform(df)
-      case "merge"        => return PrepMerge(rule).transform(df)
+      case "rename"         => return PrepRename(rule).transform(df)
+      case "header"         => return PrepHeader(rule).transform(df)
+      case "drop"           => return PrepDrop(rule).transform(df)
+      case "replace"        => return PrepReplace(rule, ruleString).transform(df)
+      case "settype"        => return PrepSetType(rule).transform(df)
+      case "keep"           => return PrepKeep(rule).transform(df)
+      case "delete"         => return PrepDelete(rule).transform(df)
+      case "split"          => return PrepSplit(rule).transform(df)
+      case "merge"          => return PrepMerge(rule).transform(df)
+      case "nest"           => return PrepNest(rule).transform(df)
+      case "unnest"         => return PrepUnnest(rule).transform(df)
     }
   }
 

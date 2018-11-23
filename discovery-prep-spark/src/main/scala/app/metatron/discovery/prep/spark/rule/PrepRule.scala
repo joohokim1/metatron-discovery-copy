@@ -7,7 +7,7 @@ import app.metatron.discovery.prep.parser.preparation.rule.expr.Identifier.{Iden
 import app.metatron.discovery.prep.spark.rule.util.DataFrameRowNumericBinding
 import app.metatron.discovery.prep.spark.SparkUtil
 import org.apache.spark.sql.{DataFrame, Row}
-import org.apache.spark.sql.types.{ArrayType, DataType, StringType}
+import org.apache.spark.sql.types.{ArrayType, BooleanType, DataType, StringType}
 
 import scala.annotation.tailrec
 import scala.collection.JavaConverters._
@@ -30,6 +30,10 @@ class PrepRule(rule: Rule) extends Serializable {
     }
 
     buf.toList
+  }
+
+  def getIdentifierList(name: String): List[String] = {
+    List(name)
   }
 
   def isColumnExist(df: DataFrame, colName: String): Boolean = {
@@ -72,6 +76,13 @@ class PrepRule(rule: Rule) extends Serializable {
     this.getColumnType(df, index).isInstanceOf[StringType]
   }
 
+  def isBooleanType(df: DataFrame,  colName : String): Boolean = {
+    this.getColumnType(df, colName).isInstanceOf[BooleanType]
+  }
+
+  def isBooleanType(df: DataFrame,  index : Int): Boolean = {
+    this.getColumnType(df, index).isInstanceOf[BooleanType]
+  }
 
   def checkCondition( expr: Expr, dfRow: Row): Boolean = {
     val binding = new DataFrameRowNumericBinding(dfRow)

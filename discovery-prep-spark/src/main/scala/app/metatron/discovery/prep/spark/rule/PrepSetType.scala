@@ -9,7 +9,7 @@ case class PrepSetType(rule: Rule) extends PrepRule(rule) {
   val settype = rule.asInstanceOf[SetType]
   val col = settype.getCol
   val typeStr = settype.getType
-  val foramtStr = settype.getFormat
+  val formatStr = settype.getFormat
 
   def getDataTypeByName( typeName : String): Option[DataType]  = typeName.toLowerCase match {
     case "string"       => Some(StringType)
@@ -56,9 +56,9 @@ case class PrepSetType(rule: Rule) extends PrepRule(rule) {
       val index = fieldNames.indexOf(colName)
       val typeName = newDf.schema(index).dataType.typeName
 
-      if ( "timestamp" == typeStr && typeName == "string" && foramtStr != null){
+      if ( "timestamp" == typeStr && typeName == "string" && formatStr != null){
         // 문자열이고 포멧이 있으면 ...
-        newDf = newDf.withColumn(colName, unix_timestamp(df(colName),foramtStr).cast(dataType) );
+        newDf = newDf.withColumn(colName, unix_timestamp(df(colName),formatStr).cast(dataType) );
       }else {
         newDf = newDf.withColumn(colName, df(colName).cast(dataType) )
       }

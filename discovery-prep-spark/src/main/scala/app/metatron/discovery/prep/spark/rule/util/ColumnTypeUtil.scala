@@ -3,12 +3,14 @@ package app.metatron.discovery.prep.spark.rule.util
 import java.sql.Types
 
 import app.metatron.discovery.prep.parser.preparation.rule.expr._
+import org.apache.spark.sql.types._
 import org.joda.time.DateTime
 
 /**
   * Created by nowone on 2018. 11. 13..
   */
 object ColumnTypeUtil {
+  // ExprType 다시 참고
   val STRING      = "STRING"
   val LONG        = "LONG"
   val DOUBLE      = "DOUBLE"
@@ -55,16 +57,34 @@ object ColumnTypeUtil {
     case  _                             => STRING
   }
 
+  def fromDataType( dataType:DataType ): String = dataType match {
+
+    case StringType                   => STRING
+    case BooleanType                  => BOOLEAN
+    case ByteType                     => LONG
+    case ShortType                    => LONG
+    case IntegerType                  => LONG
+    case LongType                     => LONG
+    case FloatType                    => DOUBLE
+    case DoubleType                   => DOUBLE
+    case TimestampType                => TIMESTAMP
+    case  _                           => UNKNOWN
+  }
+
+
   def decideType( exprOrg: Expression): String = {
 
     def decideTypeInternal(expr: Expression): String = {
       var returnType = UNKNOWN;
       if (expr.isInstanceOf[Identifier.IdentifierExpr]) {
+        returnType
+        // need df
+      } else if (expr.isInstanceOf[Constant]) {
         returnType = expr match {
-          case e: Constant.StringExpr => STRING
-          case e: Constant.LongExpr => LONG
-          case e: Constant.DoubleExpr => DOUBLE
-          case e: Constant.BooleanExpr => BOOLEAN
+          case e: Constant.StringExpr   => STRING
+          case e: Constant.LongExpr     => LONG
+          case e: Constant.DoubleExpr   => DOUBLE
+          case e: Constant.BooleanExpr  => BOOLEAN
           case e: Null.NullExpr => UNKNOWN
           case _ => throw new IllegalArgumentException("decideType(): unsupported constant type: expr=" + expr.toString)
         }
